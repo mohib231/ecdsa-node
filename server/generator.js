@@ -3,13 +3,12 @@ const { ec: EC } = pkg
 const ec = new EC('secp256k1')
 import { keyPairs } from '../keymap.mjs'
 
-
 function verifyTransaction(transaction, signature, publicKey) {
   const key = ec.keyFromPublic(publicKey, 'hex')
   const transactionString = JSON.stringify(transaction)
 
   const hash = ec.hash().update(transactionString).digest('hex')
-  console.log(hash,transactionString,key)
+  console.log(hash, transactionString, key)
   return key.verify(hash, signature)
 }
 
@@ -27,8 +26,19 @@ function updateBalances(transaction) {
 
   sender.balance -= transaction.amount
   receiver.balance += transaction.amount
-  return sender.balance;
+
+  keyPairs.map((kp) => {
+    if (kp.publicKey === transaction.from) {
+      kp.balance = sender.balance
+    }
+  })
+
+  keyPairs.map((kp) => {
+    if (kp.publicKey === transaction.to) {
+      kp.balance = receiver.balance
+    }
+  })
+  return sender.balance
 }
 
 export { verifyTransaction, updateBalances, keyPairs }
-
