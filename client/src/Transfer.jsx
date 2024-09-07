@@ -1,26 +1,47 @@
-import { useState } from "react";
-import server from "./server";
+import { useState } from 'react'
+
+import axios from 'axios'
+import { signTransaction } from '../utils/transaction'
+import { keyPairs } from '../../keymap'
 
 function Transfer({ address, setBalance }) {
-  const [sendAmount, setSendAmount] = useState("");
-  const [recipient, setRecipient] = useState("");
+  const [sendAmount, setSendAmount] = useState('')
+  const [recipient, setRecipient] = useState('')
 
-  const setValue = (setter) => (evt) => setter(evt.target.value);
+  const setValue = (setter) => (evt) => setter(evt.target.value)
+
+  function getPrivateKeyForTransaction(publicKey) {
+    const index = keyPairs.findIndex((el) => el.publicKey === publicKey)
+
+    return keyPairs[index].privateKey
+  }
+
+  const transaction = {}
 
   async function transfer(evt) {
-    evt.preventDefault();
+    evt.preventDefault()
+    transaction.to = recipient
+    transaction.from = address
+    transaction.amount = parseInt(sendAmount)
 
     try {
-      const {
-        data: { balance },
-      } = await server.post(`send`, {
-        sender: address,
-        amount: parseInt(sendAmount),
-        recipient,
-      });
-      setBalance(balance);
+      const privateKey = getPrivateKeyForTransaction(transaction.from)
+
+      if (!privateKey) {
+        alert('private key not found')
+      }
+
+      const signature = signTransaction(transaction, privateKey)
+      
+      const response = await axios.post('http://localhost:3042/send', {
+        transaction,
+        signature,
+      })
+      const { balance } = response.data
+
+      setBalance(balance)
     } catch (ex) {
-      alert(ex.response.data.message);
+      console.log(ex)
     }
   }
 
@@ -48,7 +69,7 @@ function Transfer({ address, setBalance }) {
 
       <input type="submit" className="button" value="Transfer" />
     </form>
-  );
+  )
 }
 
-export default Transfer;
+export default Transfer

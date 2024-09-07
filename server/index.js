@@ -1,44 +1,50 @@
-const express = require("express");
-const app = express();
-const cors = require("cors");
-const port = 3042;
+import express from 'express'
+const app = express()
+import cors from 'cors'
+const port = 3042
 
-app.use(cors());
-app.use(express.json());
+import { keyPairs, verifyTransaction, updateBalances } from './generator.js'
 
-const balances = {
-  "0x1": 100,
-  "0x2": 50,
-  "0x3": 75,
-};
+app.use(cors())
+app.use(express.json())
 
-app.get("/balance/:address", (req, res) => {
-  const { address } = req.params;
-  const balance = balances[address] || 0;
-  res.send({ balance });
-});
+app.get('/balance/:address', (req, res) => {
+  const { address } = req.params
+  const balance = keyPairs.filter((el) => el.publicKey === address) || 0
+  res.json({ balance: balance[0].balance })
+})
 
-app.post("/send", (req, res) => {
-  const { sender, recipient, amount } = req.body;
+app.post('/send', async (req, res) => {
+  const { transaction, signature } = req.body
 
-  setInitialBalance(sender);
-  setInitialBalance(recipient);
+  const senderPublicKey = transaction.from
+  console.log(transaction)
 
-  if (balances[sender] < amount) {
-    res.status(400).send({ message: "Not enough funds!" });
+  if (verifyTransaction(transaction, signature, senderPublicKey)) {
+    console.log(signature)
+    try {
+      const remainingBalance = updateBalances(transaction)
+      res.json({
+        status: 'success',
+        message: 'Transaction completed',
+        balance: remainingBalance,
+      })
+    } catch (error) {
+      res.status(400).json({ status: 'error', message: error.message })
+    }
   } else {
-    balances[sender] -= amount;
-    balances[recipient] += amount;
-    res.send({ balance: balances[sender] });
+    console.log('failed')
+    res.status(400).json({ status: 'error', message: 'Invalid signature' })
   }
-});
+
+})
 
 app.listen(port, () => {
-  console.log(`Listening on port ${port}!`);
-});
+  console.log(`Listening on port ${port}!`)
+})
 
 function setInitialBalance(address) {
   if (!balances[address]) {
-    balances[address] = 0;
+    balances[address] = 0
   }
 }
